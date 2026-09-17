@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Paravel — etapas y capas</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #0f0f0f;
+      --panel: #171717;
+      --elev: #1d1d1d;
+      --line: #2a2a2a;
+      --text: #ececec;
+      --muted: #8b8b8b;
+      --faint: #5c5c5c;
+      --accent: #6f8dff;
+      --ok: #7dcea0;
+      --warn: #c4a35a;
+      --later: #4a4a4a;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font: 13px/1.4 "IBM Plex Sans", "Segoe UI", sans-serif;
+    }
+    .sheet {
+      width: 1440px;
+      min-height: 900px;
+      margin: 0 auto;
+      padding: 28px 32px 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+    header {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 24px;
+      align-items: end;
+      border-bottom: 1px solid var(--line);
+      padding-bottom: 16px;
+    }
+    .brand {
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 11px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    h1 {
+      margin: 6px 0 0;
+      font-size: 28px;
+      font-weight: 600;
+      letter-spacing: -0.03em;
+    }
+    .seq {
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 8px;
+    }
+    .seq b { color: var(--text); font-weight: 500; }
+    .aside {
+      text-align: right;
+      max-width: 380px;
+      color: var(--muted);
+      font-size: 12.5px;
+      line-height: 1.45;
+    }
+    .aside strong { color: var(--text); font-weight: 500; }
+
+    .stages {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      flex: 1;
+    }
+    .stage {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 16px 16px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .stage.next {
+      border-color: var(--accent);
+    }
+    .stage.later {
+      opacity: 0.72;
+      border-style: dashed;
+    }
+    .stage-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 8px;
+    }
+    .num {
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 11px;
+      color: var(--faint);
+      letter-spacing: 0.08em;
+    }
+    .stage.next .num { color: var(--accent); }
+    .tag {
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 10px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .stage.next .tag { color: var(--accent); }
+    .stage.later .tag { color: var(--faint); }
+    .stage.now .tag { color: var(--ok); }
+    h2 {
+      margin: 0;
+      font-size: 16px;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+    }
+    .block { margin: 0; }
+    .label {
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 10px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--faint);
+      margin-bottom: 3px;
+    }
+    .block p {
+      margin: 0;
+      color: var(--text);
+      font-size: 12.5px;
+      line-height: 1.42;
+    }
+    .reuse {
+      margin-top: auto;
+      padding-top: 10px;
+      border-top: 1px solid var(--line);
+    }
+    .reuse .yes { color: var(--ok); }
+    .reuse .partial { color: var(--warn); }
+    .reuse .no { color: var(--muted); }
+
+    .layers-wrap {
+      display: grid;
+      grid-template-columns: 1.15fr 1fr;
+      gap: 12px;
+    }
+    .band {
+      background: var(--elev);
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 14px 16px;
+    }
+    .band h3 {
+      margin: 0 0 10px;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .flow {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr auto 1fr auto 1fr;
+      gap: 6px;
+      align-items: stretch;
+    }
+    .cell {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      padding: 8px 10px;
+    }
+    .cell .k {
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 10px;
+      color: var(--faint);
+      letter-spacing: 0.08em;
+    }
+    .cell .v {
+      margin-top: 2px;
+      font-size: 13px;
+      font-weight: 500;
+    }
+    .cell .n {
+      margin-top: 4px;
+      font-size: 11px;
+      color: var(--muted);
+      line-height: 1.3;
+    }
+    .arrow {
+      color: var(--faint);
+      font-family: "IBM Plex Mono", monospace;
+      display: flex;
+      align-items: center;
+      padding: 0 2px;
+    }
+    footer {
+      display: flex;
+      justify-content: space-between;
+      gap: 24px;
+      color: var(--faint);
+      font-size: 11.5px;
+      font-family: "IBM Plex Mono", monospace;
+    }
+  </style>
+</head>
+<body>
+  <div class="sheet">
+    <header>
+      <div>
+        <div class="brand">Paravel</div>
+        <h1>Etapas y capas</h1>
+        <div class="seq">
+          <b>1 pack + chat</b> → 2 Iniciar → 3 pantalla de espacio → 4 MCP (después)
+        </div>
+      </div>
+      <p class="aside">
+        Las <strong>capas</strong> no cambian de etapa a etapa. Lo que cambia es
+        <strong>qué se entrega</strong> y si el artefacto sirve fuera de Paravel.
+        MCP no es el asiento. Tauri v2 ya está cerrado.
+      </p>
+    </header>
+
+    <section class="stages">
+      <article class="stage now">
+        <div class="stage-top">
+          <span class="num">01</span>
+          <span class="tag">ahora · uso</span>
+        </div>
+        <h2>Pack + chat</h2>
+        <div class="block">
+          <div class="label">Entregable</div>
+          <p>Un Bot sentado en <em>una</em> carpeta local. Pack = notas, archivos y payloads de esa mesa. Prompt de rol: no eres el CTO.</p>
+        </div>
+        <div class="block">
+          <div class="label">Se espera</div>
+          <p>¿El pack alcanza para trabajar? ¿El Bot usurpa al CTO o se queda en su mesa?</p>
+        </div>
+        <div class="block">
+          <div class="label">Uso</div>
+          <p>Validar la tesis con conversación real. Sin app. Sin tools. El chat es el producto Grok Bot; Paravel solo decide qué carpeta se le da.</p>
+        </div>
+        <div class="reuse">
+          <div class="label">Reutilizable</div>
+          <p class="no">El gesto sí. No hay binario propio. No es kit.</p>
+        </div>
+      </article>
+
+      <article class="stage next">
+        <div class="stage-top">
+          <span class="num">02</span>
+          <span class="tag">siguiente · kit</span>
+        </div>
+        <h2>Iniciar</h2>
+        <div class="block">
+          <div class="label">Entregable</div>
+          <p>Tauri mínimo. <code>Code.exe</code> + carpeta. <code>firefox.exe</code> + dos URLs. Log con el argv exacto. Sin <code>code.cmd</code>, sin shell.</p>
+        </div>
+        <div class="block">
+          <div class="label">Se espera</div>
+          <p>Pegar el argv del log en una terminal produce el mismo resultado. Error claro si el .exe no está.</p>
+        </div>
+        <div class="block">
+          <div class="label">Uso</div>
+          <p>Abrir VS Code / Cursor / Firefox desde cualquier launcher futuro. Sirve hoy, antes de que exista la sede.</p>
+        </div>
+        <div class="reuse">
+          <div class="label">Reutilizable</div>
+          <p class="yes">Sí — kit launch-host. Otros proyectos pueden copiarlo entero.</p>
+        </div>
+      </article>
+
+      <article class="stage">
+        <div class="stage-top">
+          <span class="num">03</span>
+          <span class="tag">producto</span>
+        </div>
+        <h2>Pantalla de espacio</h2>
+        <div class="block">
+          <div class="label">Entregable</div>
+          <p>SQLite grupo / espacio / pieza. UI de mesa: marcar una o todas, Iniciar en la esquina. Diálogo nativo de carpeta.</p>
+        </div>
+        <div class="block">
+          <div class="label">Se espera</div>
+          <p>Entrar a un espacio, marcar piezas, play. Lo no marcado no se abre. El modelo deja de moverse cada semana.</p>
+        </div>
+        <div class="block">
+          <div class="label">Uso</div>
+          <p>Paravel como sede. Ahí viven los inquilinos. El play llama al kit de la etapa 2; no lo reescribe.</p>
+        </div>
+        <div class="reuse">
+          <div class="label">Reutilizable</div>
+          <p class="partial">Tiles y play, sí. El esquema SQLite es Paravel, no kit.</p>
+        </div>
+      </article>
+
+      <article class="stage later">
+        <div class="stage-top">
+          <span class="num">04</span>
+          <span class="tag">pospuesto</span>
+        </div>
+        <h2>MCP lectura</h2>
+        <div class="block">
+          <div class="label">Entregable</div>
+          <p>Tools de lectura sobre la misma capa Rust. Filtro por <code>espacio_id</code>. No registrar <code>iniciar_espacio</code>.</p>
+        </div>
+        <div class="block">
+          <div class="label">Se espera</div>
+          <p>El Bot lee el pack por tubería tipada, no por volcar la carpeta al prompt. Acceso auditable.</p>
+        </div>
+        <div class="block">
+          <div class="label">Uso</div>
+          <p>Mejora opcional del asiento. No sustituye pack + chat. No se construye hasta que 1–3 estén estables.</p>
+        </div>
+        <div class="reuse">
+          <div class="label">Reutilizable</div>
+          <p class="no">El servidor MCP genérico, sí. Las tools son Paravel.</p>
+        </div>
+      </article>
+    </section>
+
+    <div class="layers-wrap">
+      <div class="band">
+        <h3>Capas del kit — siempre las mismas</h3>
+        <div class="flow">
+          <div class="cell">
+            <div class="k">1 · UI</div>
+            <div class="v">React</div>
+            <div class="n">Pide, no lanza. Nunca shell:allow-execute.</div>
+          </div>
+          <div class="arrow">→</div>
+          <div class="cell">
+            <div class="k">2 · Frontera</div>
+            <div class="v">invoke()</div>
+            <div class="n">JSON. Un comando por kind.</div>
+          </div>
+          <div class="arrow">→</div>
+          <div class="cell">
+            <div class="k">3 · Host</div>
+            <div class="v">Rust</div>
+            <div class="n">Valida path, arma argv, log.</div>
+          </div>
+          <div class="arrow">→</div>
+          <div class="cell">
+            <div class="k">4 · SO</div>
+            <div class="v">.exe</div>
+            <div class="n">Code.exe, firefox.exe, carpeta.</div>
+          </div>
+        </div>
+      </div>
+      <div class="band">
+        <h3>Capas del producto — un linaje</h3>
+        <div class="flow">
+          <div class="cell">
+            <div class="k">Sede</div>
+            <div class="v">Paravel</div>
+            <div class="n">CTO en la puerta.</div>
+          </div>
+          <div class="arrow">→</div>
+          <div class="cell">
+            <div class="k">Estante</div>
+            <div class="v">Grupo</div>
+            <div class="n">Trabajo, Universidad…</div>
+          </div>
+          <div class="arrow">→</div>
+          <div class="cell">
+            <div class="k">Mesa</div>
+            <div class="v">Espacio</div>
+            <div class="n">Proyecto o investigación.</div>
+          </div>
+          <div class="arrow">→</div>
+          <div class="cell">
+            <div class="k">Sobre la mesa</div>
+            <div class="v">Piezas</div>
+            <div class="n">Iniciar · Bot opcional.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <footer>
+      <span>React y el Bot son clientes. Solo Rust toca el SO.</span>
+      <span>Sin code.cmd · Sin MCP hasta que 1–3 no se muevan cada semana</span>
+    </footer>
+  </div>
+</body>
+</html>

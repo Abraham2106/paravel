@@ -1,0 +1,31 @@
+{
+  "mesa": "Lecturas web",
+  "grupo": "Universidad",
+  "nota": "Dos páginas de referencia",
+  "spaceId": "b4d78c19-f4cb-4038-a9c0-e6a94d082d6a",
+  "pieceIds": [
+    "643ed395-05fe-4d20-b092-9953ab647d3a",
+    "dd4f2fc4-8487-4e27-939b-ba9b0c508019",
+    "c8fe861c-c441-487e-b5ca-c69fdc6ff2a6"
+  ],
+  "piezas": [
+    {
+      "id": "643ed395-05fe-4d20-b092-9953ab647d3a",
+      "kind": "firefox",
+      "nombre": "https://example.com",
+      "payload": { "urls": ["https://example.com/"] }
+    },
+    {
+      "id": "dd4f2fc4-8487-4e27-939b-ba9b0c508019",
+      "kind": "firefox",
+      "nombre": "https://www.mozilla.org",
+      "payload": { "urls": ["https://www.mozilla.org/"] }
+    },
+    {
+      "id": "c8fe861c-c441-487e-b5ca-c69fdc6ff2a6",
+      "kind": "vscode",
+      "nombre": "web-design",
+      "payload": { "path": "web-design" }
+    }
+  ]
+}

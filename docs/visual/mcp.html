@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Paravel — MCP local de lectura</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #0f0f0f;
+      --panel: #171717;
+      --elev: #1d1d1d;
+      --line: #2a2a2a;
+      --text: #ececec;
+      --muted: #8b8b8b;
+      --faint: #5c5c5c;
+      --accent: #6f8dff;
+      --ok: #7dcea0;
+      --warn: #c4a35a;
+      --stop: #c47a7a;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font: 13px/1.4 "IBM Plex Sans", "Segoe UI", sans-serif;
+    }
+    .sheet {
+      width: 1440px;
+      min-height: 900px;
+      margin: 0 auto;
+      padding: 28px 32px 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    header {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 24px;
+      align-items: end;
+      border-bottom: 1px solid var(--line);
+      padding-bottom: 16px;
+    }
+    .brand {
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 11px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    h1 {
+      margin: 6px 0 0;
+      font-size: 28px;
+      font-weight: 600;
+      letter-spacing: -0.03em;
+    }
+    .seq {
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 8px;
+    }
+    .seq b { color: var(--text); font-weight: 500; }
+    .aside {
+      text-align: right;
+      max-width: 420px;
+      color: var(--muted);
+      font-size: 12.5px;
+      line-height: 1.45;
+    }
+    .aside strong { color: var(--text); font-weight: 500; }
+
+    .facts {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+    }
+    .fact {
+      background: var(--elev);
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 10px 12px;
+    }
+    .fact .k {
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 10px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--faint);
+    }
+    .fact .v {
+      margin-top: 4px;
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+    }
+    .fact .n {
+      margin-top: 3px;
+      font-size: 11.5px;
+      color: var(--muted);
+      line-height: 1.35;
+    }
+    .fact.ok .v { color: var(--ok); }
+    .fact.warn .v { color: var(--warn); }
+    .fact.stop .v { color: var(--stop); }
+    .fact.now .v { color: var(--accent); }
+
+    .layers {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      flex: 1;
+    }
+    .layer {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 16px 16px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .layer.core { border-color: var(--accent); }
+    .layer-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 8px;
+    }
+    .num {
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 11px;
+      color: var(--faint);
+      letter-spacing: 0.08em;
+    }
+    .layer.core .num { color: var(--accent); }
+    .tag {
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 10px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .layer.core .tag { color: var(--accent); }
+    h2 {
+      margin: 0;
+      font-size: 16px;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+    }
+    .block { margin: 0; }
+    .label {
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 10px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--faint);
+      margin-bottom: 3px;
+    }
+    .block p {
+      margin: 0;
+      color: var(--text);
+      font-size: 12.5px;
+      line-height: 1.42;
+    }
+    code {
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 11.5px;
+    }
+    .reuse {
+      margin-top: auto;
+      padding-top: 10px;
+      border-top: 1px solid var(--line);
+    }
+    .reuse .yes { color: var(--ok); }
+    .reuse .partial { color: var(--warn); }
+    .reuse .no { color: var(--muted); }
+
+    .bands {
+      display: grid;
+      grid-template-columns: 1.2fr 1fr;
+      gap: 12px;
+    }
+    .band {
+      background: var(--elev);
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 14px 16px;
+    }
+    .band h3 {
+      margin: 0 0 10px;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .tools {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 8px;
+    }
+    .cell {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      padding: 8px 10px;
+    }
+    .cell .k {
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 10px;
+      color: var(--faint);
+      letter-spacing: 0.06em;
+    }
+    .cell .v {
+      margin-top: 2px;
+      font-size: 13px;
+      font-weight: 500;
+    }
+    .cell .n {
+      margin-top: 4px;
+      font-size: 11px;
+      color: var(--muted);
+      line-height: 1.3;
+    }
+    .pair {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .deny {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px 16px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+    .deny li {
+      font-size: 12.5px;
+      color: var(--text);
+      padding-left: 12px;
+      position: relative;
+      line-height: 1.35;
+    }
+    .deny li::before {
+      content: "—";
+      position: absolute;
+      left: 0;
+      color: var(--stop);
+      font-family: "IBM Plex Mono", monospace;
+    }
+    footer {
+      display: flex;
+      justify-content: space-between;
+      gap: 24px;
+      color: var(--faint);
+      font-size: 11.5px;
+      font-family: "IBM Plex Mono", monospace;
+    }
+  </style>
+</head>
+<body>
+  <div class="sheet">
+    <header>
+      <div>
+        <div class="brand">Paravel</div>
+        <h1>MCP local de lectura</h1>
+        <div class="seq">
+          <b>pack + chat = asiento</b> → Iniciar → pantalla de espacio → MCP (después, acotado)
+        </div>
+      </div>
+      <p class="aside">
+        Hay <strong>código de crates</strong>, no un plan vacío.
+        <strong>Cero MCP en Paravel.exe</strong> (Tauri).
+        Aceptación del cliente local <strong>pendiente</strong>.
+        No reconstruye Grok Bot. Oira y Alira son inquilinos de la sede.
+      </p>
+    </header>
+
+    <section class="facts">
+      <div class="fact ok">
+        <div class="k">Hay código</div>
+        <div class="v">paravel-mcp + context</div>
+        <div class="n">main.rs, server.rs, transport.rs, tests/stdio.rs, Reader read-only.</div>
+      </div>
+      <div class="fact now">
+        <div class="k">Transporte</div>
+        <div class="v">stdio · rmcp 3.4.0</div>
+        <div class="n">Binario aparte. CLI: --db ABS_PATH --espacio UUID. Sin puerto.</div>
+      </div>
+      <div class="fact warn">
+        <div class="k">Estado WBS 4</div>
+        <div class="v">No aceptado</div>
+        <div class="n">Implementación en curso. 4.9 y transcript de cliente pendientes.</div>
+      </div>
+      <div class="fact stop">
+        <div class="k">El asiento</div>
+        <div class="v">No es MCP</div>
+        <div class="n">El Bot se sienta en pack + chat. MCP no inicia mesas ni Bots.</div>
+      </div>
+    </section>
+
+    <section class="layers">
+      <article class="layer">
+        <div class="layer-top">
+          <span class="num">01</span>
+          <span class="tag">ajeno</span>
+        </div>
+        <h2>Cliente local</h2>
+        <div class="block">
+          <div class="label">Entregable</div>
+          <p>Una entrada <code>mcpServers</code> con exe, DB absoluta y UUID de <em>una</em> mesa. Plantilla: <code>cursor-mcp.example.json</code>.</p>
+        </div>
+        <div class="block">
+          <div class="label">Se espera</div>
+          <p><code>initialize</code> → tres tools. El operador elige mesa; el modelo no. Cursor u otro: no hay cliente aceptado.</p>
+        </div>
+        <div class="block">
+          <div class="label">No es</div>
+          <p>Grok Bot, la UI de Paravel, ni un mapa de la sede. Cerrar Tauri no mata este proceso.</p>
+        </div>
+        <div class="reuse">
+          <div class="label">Reutilizable</div>
+          <p class="partial">El formato stdio, sí. La mesa y las rutas son privadas.</p>
+        </div>
+      </article>
+
+      <article class="layer core">
+        <div class="layer-top">
+          <span class="num">02</span>
+          <span class="tag">binario propio</span>
+        </div>
+        <h2>paravel-mcp</h2>
+        <div class="block">
+          <div class="label">Entregable</div>
+          <p>Servidor <code>rmcp = "=3.4.0"</code> (<code>server</code> + <code>transport-io</code>). Stdin/stdout = JSON-RPC. Stderr = diagnóstico. Tope de trama 64 KiB.</p>
+        </div>
+        <div class="block">
+          <div class="label">Se espera</div>
+          <p>EOF cierra. <code>--help</code> / <code>--version</code> no abren DB. Reiniciar conserva el UUID del argv. Protocolo de referencia: 2025-11-25.</p>
+        </div>
+        <div class="block">
+          <div class="label">No es</div>
+          <p>Sidecar Tauri, HTTP, túnel, servicio 24/7. No vive en <code>app/src-tauri</code>.</p>
+        </div>
+        <div class="reuse">
+          <div class="label">Reutilizable</div>
+          <p class="yes">El SDK, sí. El exe y las tools son Paravel.</p>
+        </div>
+      </article>
+
+      <article class="layer">
+        <div class="layer-top">
+          <span class="num">03</span>
+          <span class="tag">biblioteca</span>
+        </div>
+        <h2>paravel-context</h2>
+        <div class="block">
+          <div class="label">Entregable</div>
+          <p><code>Reader::open</code> con <code>SQLITE_OPEN_READ_ONLY</code>. Cada llamada vuelve a comprobar espacio + <code>pack_pieza</code>. Sin migraciones ni seed.</p>
+        </div>
+        <div class="block">
+          <div class="label">Se espera</div>
+          <p>Mesa ajena o pieza no invitada: <code>NOT_FOUND_OR_NOT_VISIBLE</code>. Pack vacío = cero piezas. La nota sigue visible.</p>
+        </div>
+        <div class="block">
+          <div class="label">Tauri</div>
+          <p>Comparte DTOs de <code>ui</code>. Conserva CRUD, Iniciar y <code>list_spaces</code>. Compartir crate no comparte privilegios.</p>
+        </div>
+        <div class="reuse">
+          <div class="label">Reutilizable</div>
+          <p class="partial">Consultas y DTO, sí. El esquema es de Paravel.</p>
+        </div>
+      </article>
+
+      <article class="layer">
+        <div class="layer-top">
+          <span class="num">04</span>
+          <span class="tag">una mesa</span>
+        </div>
+        <h2>SQLite</h2>
+        <div class="block">
+          <div class="label">Entregable</div>
+          <p>Sede → grupo → espacio → piezas. Relación <code>pack_pieza</code>. Oira/Alira = inquilinos. CTO = sede, no una mesa.</p>
+        </div>
+        <div class="block">
+          <div class="label">Se espera</div>
+          <p>Tauri crea y mantiene la DB. MCP abre la que ya existe. Schema incompatible: <code>SCHEMA_UNSUPPORTED</code>, sin reparar.</p>
+        </div>
+        <div class="block">
+          <div class="label">No autoriza</div>
+          <p><code>marcada</code> es de Iniciar. <code>bot_activo</code> es de la UI. Ninguno abre el pack al MCP.</p>
+        </div>
+        <div class="reuse">
+          <div class="label">Reutilizable</div>
+          <p class="no">No. El modelo es Paravel, no kit.</p>
+        </div>
+      </article>
+    </section>
+
+    <div class="bands">
+      <div class="band">
+        <h3>Tres tools — contrato v1</h3>
+        <div class="tools">
+          <div class="cell">
+            <div class="k">leer_espacio</div>
+            <div class="v">Nota de la mesa</div>
+            <div class="n">Entrada {}. Sale id, nombre, grupo (etiqueta), nota, conteo de compartidas. Sin inventario de sede.</div>
+          </div>
+          <div class="cell">
+            <div class="k">listar_piezas</div>
+            <div class="v">Página del pack</div>
+            <div class="n">limite 1–100 (50). cursor ligado al espacio. Solo piezas actuales de pack_pieza: id, nombre, kind.</div>
+          </div>
+          <div class="cell">
+            <div class="k">leer_contexto_pieza</div>
+            <div class="v">Payload persistido</div>
+            <div class="n">pieza_id UUID. Rutas y URLs son datos: no se abren, no hay fetch, no hay adaptador.</div>
+          </div>
+        </div>
+      </div>
+      <div class="band">
+        <h3>Pack frente a MCP frente a Iniciar</h3>
+        <div class="pair">
+          <div class="cell">
+            <div class="k">Pack + chat</div>
+            <div class="v">Asiento del Bot</div>
+            <div class="n">Humano copia y pega en el chat. Independiente. No es una tool MCP.</div>
+          </div>
+          <div class="cell">
+            <div class="k">MCP</div>
+            <div class="v">Lectura después</div>
+            <div class="n">Cliente local llama tools sobre esa mesa. No sienta al Bot. No lanza nada.</div>
+          </div>
+          <div class="cell">
+            <div class="k">Iniciar</div>
+            <div class="v">Kit Tauri</div>
+            <div class="n">invoke → Rust → Code.exe / firefox.exe. MCP no registra iniciar_espacio.</div>
+          </div>
+          <div class="cell">
+            <div class="k">Revocar</div>
+            <div class="v">Pack ≠ nota</div>
+            <div class="n">Quitar pack oculta piezas. La nota queda hasta desconectar y matar el proceso.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="bands">
+      <div class="band">
+        <h3>Qué no hace — nunca en esta fase</h3>
+        <ul class="deny">
+          <li>Iniciar, spawn, argv, shell</li>
+          <li>listar_espacios u otras mesas</li>
+          <li>SQL libre, path, command</li>
+          <li>Abrir archivos, carpetas, PDFs</li>
+          <li>Fetch de URLs o Notion</li>
+          <li>Escribir pack, CRUD, migrar</li>
+          <li>Puente a Grok Bot / VM remota</li>
+          <li>HTTP, OAuth, 24/7, red</li>
+        </ul>
+      </div>
+      <div class="band">
+        <h3>Límites del código real</h3>
+        <div class="tools">
+          <div class="cell">
+            <div class="k">Respuesta</div>
+            <div class="v">256 KiB</div>
+            <div class="n">Sin truncado. CONTEXT_TOO_LARGE.</div>
+          </div>
+          <div class="cell">
+            <div class="k">Página</div>
+            <div class="v">100 máx.</div>
+            <div class="n">SQLite espera 2 s. Busy no cuelga.</div>
+          </div>
+          <div class="cell">
+            <div class="k">Anotaciones</div>
+            <div class="v">solo lectura</div>
+            <div class="n">readOnly, no destructivo. Metadatos, no candado.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <footer>
+      <span>Fuentes: app/crates/paravel-mcp · paravel-context · ARQUITECTURA §6/§9 · WBS-MCP.md · CAPAS.md (MCP no entra al kit)</span>
+      <span>stdio local ≠ inferencia local · pack+chat sigue siendo el asiento</span>
+    </footer>
+  </div>
+</body>
+</html>
