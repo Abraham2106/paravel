@@ -1118,6 +1118,20 @@ fn invalid_uuid_unknown_properties_limits_and_cursors_cannot_change_scope() {
         unknown["error"]["code"].as_i64(),
         Some(-32601 | -32602)
     ));
+    for name in [
+        "list_navigation_catalog",
+        "resolve_navigation_target",
+        "buscar",
+        "search",
+        "buscar_global",
+    ] {
+        unknown = client.call(name, json!({}));
+        assert!(unknown.get("result").is_none(), "{name} must not be an MCP tool");
+        assert!(matches!(
+            unknown["error"]["code"].as_i64(),
+            Some(-32601 | -32602)
+        ));
+    }
     assert_space(&mut client, 2);
     client.finish();
     fixture.assert_unchanged(&before);

@@ -1211,6 +1211,40 @@ async fn authorized_discovery_and_reads_preserve_the_entire_sqlite_snapshot() {
             assert_eq!(tool["annotations"][key], expected);
         }
     }
+    for name in [
+        "list_navigation_catalog",
+        "resolve_navigation_target",
+        "buscar",
+        "search",
+        "buscar_global",
+    ] {
+        let message = mcp.call(name, json!({})).await;
+        assert!(
+            message.get("result").is_none(),
+            "{name} must not be an MCP tool"
+        );
+        assert!(matches!(
+            message["error"]["code"].as_i64(),
+            Some(-32601 | -32602)
+        ));
+    }
+    for name in [
+        "list_navigation_catalog",
+        "resolve_navigation_target",
+        "buscar",
+        "search",
+        "buscar_global",
+    ] {
+        let message = mcp.call(name, json!({})).await;
+        assert!(
+            message.get("result").is_none(),
+            "{name} must not be an MCP tool"
+        );
+        assert!(matches!(
+            message["error"]["code"].as_i64(),
+            Some(-32601 | -32602)
+        ));
+    }
     assert_eq!(
         mcp.success("leer_espacio", json!({})).await,
         json!({"id":A,"nombre":"Mesa autorizada","grupo":"Mesa autorizada","nota":NOTE,"piezas_compartidas":2})
