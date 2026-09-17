@@ -1112,7 +1112,7 @@ fn invalid_uuid_unknown_properties_limits_and_cursors_cannot_change_scope() {
             invalid_argument(&client.call(name, args));
         }
     }
-    let unknown = client.call("listar_espacios", json!({}));
+    let mut unknown = client.call("listar_espacios", json!({}));
     assert!(unknown.get("result").is_none());
     assert!(matches!(
         unknown["error"]["code"].as_i64(),
