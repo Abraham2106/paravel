@@ -13,6 +13,8 @@ import type { FirefoxGroupInput } from "./firefoxGroup";
 import { DEFAULT_GROUP_ICON, GROUP_ICONS, GroupGlyph, resolveGroupIcon } from "./groupIcons";
 import SettingsDialog from "./SettingsDialog";
 import "./Settings.css";
+import { destinationChanged, hitTarget, type NavigationOutcome, type NavigationResolve, type SearchHit } from "./navigation";
+import GlobalSearchDialog from "./GlobalSearchDialog";
 import { hostErrorMessage, invokeSafe, isTauri, TauriRuntimeUnavailableError } from "./tauri";
 
 type Group = { id: string; name: string; icon?: string; order: number };
@@ -130,8 +132,10 @@ export default function Workspace() {
   const [groupId, setGroupId] = useState<string | null>(() => readStoredId(GROUP_SESSION_KEY));
   const [spaceId, setSpaceId] = useState<string | null>(() => readStoredId(SPACE_SESSION_KEY));
   const [homeView, setHomeView] = useState<HomeView>("table");
-  const [search, setSearch] = useState("");
-  const searchInput = useRef<HTMLInputElement>(null);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [catalogEpoch, setCatalogEpoch] = useState(0);
+  const [focusPieceId, setFocusPieceId] = useState<string | null>(null);
+  const searchTrigger = useRef<HTMLButtonElement>(null);
   const addMenu = useRef<HTMLDetailsElement>(null);
   const [filter, setFilter] = useState<"all" | "marked">("all");
   const [pieceGroup, setPieceGroup] = useState("all");
@@ -179,6 +183,9 @@ export default function Workspace() {
 
   const continuityGuard = useRef<ContinuityGuard | null>(null);
   const navigating = useRef(false);
+  const pieceGeneration = useRef(0);
+  const navAttempt = useRef(0);
+  const focusHeading = useRef(false);
   const exitGuards = useRef<Set<ExitGuard>>(new Set());
   const registerDirtyGuard = useCallback((guard: ContinuityGuard) => {
     continuityGuard.current = guard;
@@ -228,6 +235,22 @@ export default function Workspace() {
     return () => { disposed = true; unlisten?.(); window.removeEventListener("beforeunload", beforeUnload); };
   }, [allowExit]);
 
+  function bumpCatalog() {
+    setCatalogEpoch((current) => current + 1);
+  }
+  function blockingOverlay() {
+    return captureActive.current || templateActive.current || settingsOpen || firefoxGroupOpen
+      || urlsOpen || packOpen || Boolean(groupForm) || spaceFormOpen || logOpen;
+  }
+  function openSearch() {
+    if (blockingOverlay()) return;
+    setSearchOpen(true);
+  }
+  function closeSearch() {
+    navAttempt.current += 1;
+    setSearchOpen(false);
+  }
+
   async function allowNavigation() {
     if (!await allowExit()) return false;
     captureActive.current = false;
@@ -255,7 +278,8 @@ export default function Workspace() {
     setGroups(nextGroups); setSpaces(nextSpaces); setPieces(nextPieces);
     activeSpace.current = result.space.id;
     setGroupId(result.space.groupId); setSpaceId(result.space.id);
-    setSearch(""); resetPieceFilters(); setSpaceLoading(false);
+    resetPieceFilters(); setFocusPieceId(null); setSpaceLoading(false);
+    bumpCatalog();
     setStatus("Espacio creado. Preparación privada y pack vacío; selecciona piezas antes de Iniciar.");
     closeTemplates();
     requestAnimationFrame(() => document.getElementById("content")?.focus());
@@ -276,44 +300,59 @@ export default function Workspace() {
     setCaptureOpen(false);
   }
 
-  async function goSede() {
-    if (!await allowNavigation()) return;
+  async function goSede(skipGuard = false) {
+    if (!skipGuard && !await allowNavigation()) return false;
+    pieceGeneration.current += 1;
     activeSpace.current = null;
+    setFocusPieceId(null);
     setGroupId(null);
     setSpaceId(null);
     setPieces([]);
     setSpaceLoading(false);
     resetPieceFilters();
+    return true;
   }
 
-  async function goGroup(id: string) {
-    if (!await allowNavigation()) return;
+  async function goGroup(id: string, skipGuard = false) {
+    if (!skipGuard && !await allowNavigation()) return false;
+    pieceGeneration.current += 1;
     activeSpace.current = null;
+    setFocusPieceId(null);
     setGroupId(id);
     setSpaceId(null);
     setPieces([]);
     setSpaceLoading(false);
     resetPieceFilters();
+    return true;
   }
 
-  async function goSpace(id: string, nextGroupId?: string) {
-    if (id === activeSpace.current) return;
-    if (!await allowNavigation()) return;
+  async function goSpace(id: string, nextGroupId?: string, skipGuard = false) {
+    if (id === activeSpace.current) {
+      if (nextGroupId) setGroupId(nextGroupId);
+      return true;
+    }
+    if (!skipGuard && !await allowNavigation()) return false;
+    pieceGeneration.current += 1;
     if (nextGroupId) setGroupId(nextGroupId);
     activeSpace.current = id;
     setSpaceId(id);
+    setPieces([]);
+    setFocusPieceId(null);
     resetPieceFilters();
     setSpaceLoading(true);
+    return true;
   }
 
   useEffect(() => {
     function closeOnEscape(event: KeyboardEvent) {
-      if (captureActive.current || templateActive.current) return;
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
         event.preventDefault();
-        searchInput.current?.focus();
+        if (searchOpen) return;
+        if (blockingOverlay()) return;
+        setSearchOpen(true);
         return;
       }
+      if (searchOpen || captureActive.current || templateActive.current) return;
       if (event.key !== "Escape") return;
       if (addMenu.current?.open) {
         addMenu.current.open = false;
@@ -326,27 +365,15 @@ export default function Workspace() {
     }
     document.addEventListener("keydown", closeOnEscape);
     return () => document.removeEventListener("keydown", closeOnEscape);
-  }, []);
+  }, [searchOpen, settingsOpen, firefoxGroupOpen, urlsOpen, packOpen, groupForm, spaceFormOpen, logOpen]);
 
-  const query = search.trim().toLocaleLowerCase();
-  const matchingSpaces = spaces.filter((space) =>
-    [space.name, space.note, groups.find((group) => group.id === space.groupId)?.name]
-      .some((value) => value?.toLocaleLowerCase().includes(query)));
-  const matchingGroups = groups.filter((group) => {
-    if (!query) return true;
-    if (group.name.toLocaleLowerCase().includes(query)) return true;
-    return matchingSpaces.some((space) => space.groupId === group.id);
-  });
   const currentSpace = spaces.find((space) => space.id === spaceId);
   const currentGroup = groups.find((group) => group.id === groupId) ?? (currentSpace
     ? groups.find((group) => group.id === currentSpace.groupId)
     : undefined);
   const inSpace = spaceId !== null;
   const inGroup = groupId !== null && spaceId === null;
-  const groupSpaces = (currentGroup ? spaces.filter((space) => space.groupId === currentGroup.id) : [])
-    .filter((space) => !query
-      || currentGroup?.name.toLocaleLowerCase().includes(query)
-      || [space.name, space.note].some((value) => value?.toLocaleLowerCase().includes(query)));
+  const groupSpaces = currentGroup ? spaces.filter((space) => space.groupId === currentGroup.id) : [];
   const markedCount = pieces.filter((piece) => piece.marked).length;
   const failedPieces = pieces.filter((piece) => pieceRun[piece.id]?.ok === false);
   const groupsInPieces = [...new Set(pieces.map((piece) => piece.kind))];
@@ -359,17 +386,17 @@ export default function Workspace() {
     return formatMesaPack(currentSpace, groupName, pieces.filter((piece) => pack.includes(piece.id)));
   }, [currentSpace, groups, pack, pieces]);
 
-  async function probePaths(id: string, next: Piece[], mode: "replace" | "merge" = "replace") {
+  async function probePaths(id: string, next: Piece[], mode: "replace" | "merge" = "replace", generation = pieceGeneration.current) {
     const items = next
       .filter((piece) => piece.kind !== "firefox" && piece.kind !== "firefox-group")
       .map((piece) => ({ id: piece.id, kind: piece.kind, path: piece.payload.path }));
     if (!items.length) {
-      if (mode === "replace" && activeSpace.current === id) setPathCheck({});
+      if (mode === "replace" && activeSpace.current === id && pieceGeneration.current === generation) setPathCheck({});
       return;
     }
     try {
       const probes = await invokeSafe<PathProbeResult[]>("probe_paths", { items });
-      if (activeSpace.current !== id) return;
+      if (activeSpace.current !== id || pieceGeneration.current !== generation) return;
       const map: Record<string, PathCheck> = {};
       for (const probe of probes) {
         map[probe.id] = probe.ok ? { ok: true } : { ok: false, error: probe.error?.trim() || "Ruta rota" };
@@ -377,18 +404,23 @@ export default function Workspace() {
       if (mode === "replace") setPathCheck(map);
       else setPathCheck((current) => ({ ...current, ...map }));
     } catch {
-      if (mode === "replace" && activeSpace.current === id) setPathCheck({});
+      if (mode === "replace" && activeSpace.current === id && pieceGeneration.current === generation) setPathCheck({});
     }
   }
-  async function loadPieces(id: string) {
+  async function loadPieces(id: string, generation = pieceGeneration.current) {
     try {
       const next = await invokeSafe<Piece[]>("list_pieces", { spaceId: id });
-      if (activeSpace.current !== id) return;
+      if (activeSpace.current !== id || pieceGeneration.current !== generation) return;
       setPieces(next);
-      await probePaths(id, next, "replace");
+      await probePaths(id, next, "replace", generation);
     }
-    catch (error) { setStatus(hostErrorMessage(error)); }
-    finally { if (activeSpace.current === id) setSpaceLoading(false); }
+    catch (error) {
+      if (activeSpace.current !== id || pieceGeneration.current !== generation) return;
+      setPieces([]);
+      setPathCheck({});
+      setStatus(hostErrorMessage(error));
+    }
+    finally { if (activeSpace.current === id && pieceGeneration.current === generation) setSpaceLoading(false); }
   }
   useEffect(() => { writeStoredId(SPACE_SESSION_KEY, spaceId); }, [spaceId]);
   useEffect(() => { writeStoredId(GROUP_SESSION_KEY, groupId); }, [groupId]);
@@ -403,8 +435,10 @@ export default function Workspace() {
       setSpaceLoading(false);
       return;
     }
+    const generation = ++pieceGeneration.current;
     setSpaceLoading(true);
-    void loadPieces(spaceId);
+    void loadPieces(spaceId, generation);
+    return () => { pieceGeneration.current += 1; };
   }, [spaceId]);
   useEffect(() => {
     if (homeLoading || !connected) return;
@@ -423,6 +457,23 @@ export default function Workspace() {
     if (groupId && !groups.some((group) => group.id === groupId)) setGroupId(null);
   }, [connected, groupId, groups, homeLoading, spaceId, spaces]);
 
+  useEffect(() => {
+    if (!focusPieceId || spaceLoading) return;
+    const card = document.getElementById(`piece-${focusPieceId}`);
+    if (!card) {
+      setStatus("La pieza ya no está en esta mesa.");
+      setFocusPieceId(null);
+      return;
+    }
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    card.scrollIntoView({ block: "nearest", behavior: reduce ? "auto" : "smooth" });
+    card.focus();
+  }, [focusPieceId, spaceLoading, visiblePieces]);
+  useEffect(() => {
+    if (!focusHeading.current || homeLoading || spaceLoading) return;
+    focusHeading.current = false;
+    document.querySelector<HTMLElement>(".workspace h1")?.focus();
+  }, [groupId, spaceId, homeLoading, spaceLoading, inSpace, inGroup]);
   async function togglePiece(piece: Piece) {
     const marked = !piece.marked;
     setPieces((current) => current.map((item) => item.id === piece.id ? { ...item, marked } : item));
@@ -447,6 +498,7 @@ export default function Workspace() {
     operation.current = true; setBusy(true);
     try {
       await invokeSafe("delete_piece", { id: piece.id });
+      bumpCatalog();
       setPieces((current) => current.filter((item) => item.id !== piece.id));
       setPieceRun((current) => {
         const next = { ...current };
@@ -513,6 +565,7 @@ export default function Workspace() {
     catch (error) { setStatus(hostErrorMessage(error)); }
   }
   async function ingestPiece(created: Piece, message: string) {
+    bumpCatalog();
     if (activeSpace.current !== created.spaceId) return;
     setPieces((current) => current.some((piece) => piece.id === created.id) ? current : [...current, created]);
     await probePaths(created.spaceId, [created], "merge");
@@ -671,10 +724,12 @@ export default function Workspace() {
       if (groupForm === "edit" && currentGroup) {
         const updated = await invokeSafe<Group>("update_group", { id: currentGroup.id, name, icon: groupIcon });
         setGroups((current) => current.map((group) => group.id === updated.id ? updated : group));
+        bumpCatalog();
         setStatus("Grupo actualizado.");
       } else {
         const created = await invokeSafe<Group>("create_group", { name, icon: groupIcon });
         setGroups((current) => [...current, created].sort((a, b) => a.order - b.order || a.name.localeCompare(b.name, "es")));
+        bumpCatalog();
         await goGroup(created.id);
         setStatus("Grupo creado.");
       }
@@ -695,6 +750,7 @@ export default function Workspace() {
     try {
       const created = await invokeSafe<Space>("create_space", { groupId, name, note: spaceNote.trim() || null });
       setSpaces((current) => [...current, created]);
+      bumpCatalog();
       setSpaceFormOpen(false);
       setSpaceName("");
       setSpaceNote("");
@@ -707,16 +763,86 @@ export default function Workspace() {
     }
   }
 
+  async function activateSearchResult(hit: SearchHit): Promise<NavigationOutcome> {
+    const attempt = ++navAttempt.current;
+    const resolve = () => invokeSafe<NavigationResolve>("resolve_navigation_target", { target: hitTarget(hit) });
+    try {
+      const first = await resolve();
+      if (attempt !== navAttempt.current) return { status: "cancelled" };
+      if (first.status !== "found" || !first.target) return { status: "not-found" };
+      if (destinationChanged(hit, first.target)) return { status: "changed", target: first.target };
+      const leaves = first.target.type === "group"
+        ? Boolean(activeSpace.current)
+        : first.target.spaceId !== activeSpace.current;
+      if (leaves) {
+        if (!await allowNavigation()) return { status: "cancelled" };
+        if (attempt !== navAttempt.current) return { status: "cancelled" };
+        const second = await resolve();
+        if (attempt !== navAttempt.current) return { status: "cancelled" };
+        if (second.status !== "found" || !second.target) return { status: "not-found" };
+        if (destinationChanged(hit, second.target)) return { status: "changed", target: second.target };
+        return commitSearchTarget(second.target, attempt);
+      }
+      return commitSearchTarget(first.target, attempt);
+    } catch (error) {
+      return { status: "error", message: hostErrorMessage(error) };
+    }
+  }
+
+  async function commitSearchTarget(target: NonNullable<NavigationResolve["target"]>, attempt: number): Promise<NavigationOutcome> {
+    if (attempt !== navAttempt.current) return { status: "cancelled" };
+    const groupKnown = (id: string) => groups.some((group) => group.id === id);
+    const spaceKnown = (id: string) => spaces.some((space) => space.id === id);
+    const needsRefresh = target.type === "group" ? !groupKnown(target.groupId)
+      : target.type === "space" ? !spaceKnown(target.spaceId) || !groupKnown(target.groupId)
+      : !spaceKnown(target.spaceId) || !groupKnown(target.groupId);
+    if (needsRefresh) {
+      const [nextGroups, nextSpaces] = await Promise.all([
+        invokeSafe<Group[]>("list_groups"), invokeSafe<Space[]>("list_spaces"),
+      ]);
+      if (attempt !== navAttempt.current) return { status: "cancelled" };
+      setGroups(nextGroups);
+      setSpaces(nextSpaces);
+    }
+    if (target.type === "group") {
+      focusHeading.current = true;
+      setFocusPieceId(null);
+      await goGroup(target.groupId, true);
+      return { status: "navigated" };
+    }
+    if (target.type === "space") {
+      focusHeading.current = true;
+      setFocusPieceId(null);
+      await goSpace(target.spaceId, target.groupId, true);
+      return { status: "navigated" };
+    }
+    const sameMesa = target.spaceId === activeSpace.current;
+    if (filter !== "all" || pieceGroup !== "all") {
+      setFilter("all");
+      setPieceGroup("all");
+      setStatus("Se muestran todas las piezas para localizar el destino.");
+    }
+    if (!sameMesa) {
+      await goSpace(target.spaceId, target.groupId, true);
+    }
+    setFocusPieceId(target.pieceId);
+    return { status: "navigated" };
+  }
+
   return (
     <div className="app-shell"><a className="skip-link" href="#content">Ir al contenido</a>
       <aside className="sidebar" aria-label="Grupos y espacios">
         <div className="brand"><span className="brand-mark">P</span><span>Paravel</span></div>
         <button className={`space-link home-link ${!groupId && !spaceId ? "active" : ""}`} type="button" aria-current={!groupId && !spaceId ? "page" : undefined} onClick={() => goSede()}><span aria-hidden="true">⌂</span> Sede</button>
-        <label className="workspace-search"><span aria-hidden="true">⌕</span><input ref={searchInput} type="search" placeholder="Buscar grupos y espacios" aria-label="Buscar grupos y espacios" value={search} onChange={(event) => setSearch(event.target.value)} /><kbd>Ctrl K</kbd></label>
+        <button ref={searchTrigger} className="workspace-search search-trigger" type="button" onClick={openSearch}>
+          <span aria-hidden="true">⌕</span>
+          Buscar en Paravel
+          <kbd>Ctrl K</kbd>
+        </button>
         <p className="sidebar-label">Grupos</p>
-        {matchingGroups.map((group) => <section className="group" key={group.id}>
+        {groups.map((group) => <section className="group" key={group.id}>
           <button className={`space-link group-link ${group.id === groupId && !spaceId ? "active" : ""}`} type="button" aria-current={group.id === groupId && !spaceId ? "page" : undefined} onClick={() => goGroup(group.id)}><GroupGlyph id={group.icon} />{group.name}</button>
-          {matchingSpaces.filter((space) => space.groupId === group.id).map((space) =>
+          {spaces.filter((space) => space.groupId === group.id).map((space) =>
             <button className={`space-link nested ${space.id === spaceId ? "active" : ""}`} key={space.id} type="button" aria-current={space.id === spaceId ? "page" : undefined} onClick={() => goSpace(space.id, space.groupId)}><span className="space-dot" aria-hidden="true" />{space.name}{space.botActive && <span className="badge">Pack</span>}</button>
           )}
         </section>)}
@@ -725,18 +851,16 @@ export default function Workspace() {
       </aside>
       <main className="workspace" id="content" tabIndex={-1}>
         <header className="topbar"><span className="breadcrumb"><button type="button" onClick={() => goSede()}>Sede</button>{currentGroup ? <> <span className="sep" aria-hidden="true">/</span> {inSpace ? <button type="button" onClick={() => goGroup(currentGroup.id)}><GroupGlyph id={currentGroup.icon} />{currentGroup.name}</button> : <span className="crumb"><GroupGlyph id={currentGroup.icon} />{currentGroup.name}</span>}</> : !inSpace ? <> <span className="sep" aria-hidden="true">/</span> <span>Grupos</span></> : null}{currentSpace ? <> <span className="sep" aria-hidden="true">/</span> <span>{currentSpace.name}</span></> : inSpace ? <> <span className="sep" aria-hidden="true">/</span> <span>…</span></> : null}</span><div className="top-actions"><button className="secondary" type="button" disabled={!connected || busy} onClick={openCapture}>Añadir recursos</button><button className="secondary" type="button" disabled={!connected} onClick={() => setSettingsOpen(true)}>Este equipo</button><button className="secondary" type="button" disabled={!connected} onClick={() => void openLog()}>Historial</button><span className={`host-status ${connected ? "connected" : ""}`}><span className="space-dot" />{connected ? "En este equipo" : "Host desconectado"}</span></div></header>
-        {!inSpace ? <section className="home-view"><div className="gallery-header"><div>{inGroup ? <><p className="eyebrow">GRUPO</p><h1><GroupGlyph id={currentGroup?.icon} large /> {currentGroup?.name ?? "Grupo"}</h1><p>Espacios de este grupo. Cada espacio es una mesa con sus piezas.</p></> : <><p className="eyebrow">TU SEDE LOCAL</p><h1>Grupos</h1><p>Un grupo es una página principal. Entrá para ver sus espacios.</p></>}</div><div className="home-toolbar">{inGroup && <button className="secondary" type="button" disabled={!connected || !currentGroup} onClick={openEditGroup}>Editar grupo</button>}{inGroup && <button className="secondary" type="button" disabled={!connected || !groupId} onClick={openTemplates}>Crear espacio</button>}{!inGroup && <button className="secondary" type="button" disabled={!connected} onClick={openCreateGroup}>Crear grupo</button>}<div className="view-toggles" role="group" aria-label={inGroup ? "Vista del grupo" : "Vista de sede"}><button aria-pressed={homeView === "gallery"} className={homeView === "gallery" ? "active" : ""} type="button" onClick={() => setHomeView("gallery")}>Galería</button><button aria-pressed={homeView === "table"} className={homeView === "table" ? "active" : ""} type="button" onClick={() => setHomeView("table")}>Tabla</button></div></div></div>
+        {!inSpace ? <section className="home-view"><div className="gallery-header"><div>{inGroup ? <><p className="eyebrow">GRUPO</p><h1 tabIndex={-1}><GroupGlyph id={currentGroup?.icon} large /> {currentGroup?.name ?? "Grupo"}</h1><p>Espacios de este grupo. Cada espacio es una mesa con sus piezas.</p></> : <><p className="eyebrow">TU SEDE LOCAL</p><h1 tabIndex={-1}>Grupos</h1><p>Un grupo es una página principal. Entrá para ver sus espacios.</p></>}</div><div className="home-toolbar">{inGroup && <button className="secondary" type="button" disabled={!connected || !currentGroup} onClick={openEditGroup}>Editar grupo</button>}{inGroup && <button className="secondary" type="button" disabled={!connected || !groupId} onClick={openTemplates}>Crear espacio</button>}{!inGroup && <button className="secondary" type="button" disabled={!connected} onClick={openCreateGroup}>Crear grupo</button>}<div className="view-toggles" role="group" aria-label={inGroup ? "Vista del grupo" : "Vista de sede"}><button aria-pressed={homeView === "gallery"} className={homeView === "gallery" ? "active" : ""} type="button" onClick={() => setHomeView("gallery")}>Galería</button><button aria-pressed={homeView === "table"} className={homeView === "table" ? "active" : ""} type="button" onClick={() => setHomeView("table")}>Tabla</button></div></div></div>
           {homeLoading ? <p className="empty" role="status">{inGroup ? "Cargando espacios…" : "Cargando tus grupos…"}</p>
             : inGroup
-              ? !groupSpaces.length && query ? <div className="empty"><h2>No se encontraron espacios</h2><p>Prueba con otro nombre en este grupo.</p><button className="secondary" type="button" onClick={() => setSearch("")}>Limpiar búsqueda</button></div>
-                : !groupSpaces.length ? <div className="empty"><h2>{connected ? "Este grupo todavía no tiene espacios" : "Tu sede vive en Paravel"}</h2><p>{connected ? "Creá un espacio para armar la mesa de este grupo." : "Abre la aplicación de escritorio para acceder a tus espacios."}</p>{connected && <button className="secondary" type="button" onClick={openTemplates}>Crear espacio</button>}</div>
+              ? !groupSpaces.length ? <div className="empty"><h2>{connected ? "Este grupo todavía no tiene espacios" : "Tu sede vive en Paravel"}</h2><p>{connected ? "Creá un espacio para armar la mesa de este grupo." : "Abre la aplicación de escritorio para acceder a tus espacios."}</p>{connected && <button className="secondary" type="button" onClick={openTemplates}>Crear espacio</button>}</div>
                 : homeView === "gallery" ? <div className="card-grid">{groupSpaces.map((space) => <button className="space-card" key={space.id} type="button" onClick={() => goSpace(space.id, space.groupId)}><strong>{space.name}</strong><small>{currentGroup?.name}</small><span className="space-note">{space.note || "Sin descripción"}</span><span className="space-card-meta"><span>{space.pack.length ? `${space.pack.length} pieza${space.pack.length === 1 ? "" : "s"} en pack` : "Mesa local"}</span>{space.botActive && <span className="mini-badge">Pack listo</span>}</span><span className="space-card-open">Abrir espacio →</span></button>)}</div>
                 : <div className="table-scroll"><table className="space-table"><thead><tr><th scope="col">Espacio</th><th scope="col">Descripción</th></tr></thead><tbody>{groupSpaces.map((space) => <tr key={space.id}><td><button className="table-link" type="button" onClick={() => goSpace(space.id, space.groupId)}>{space.name}</button></td><td>{space.note}</td></tr>)}</tbody></table></div>
               : !groups.length ? <div className="empty"><h2>{connected ? "Todavía no hay grupos" : "Tu sede vive en Paravel"}</h2><p>{connected ? "Creá un grupo para ordenar tus espacios." : "Abre la aplicación de escritorio para acceder a tus grupos y espacios."}</p>{connected && <button className="secondary" type="button" onClick={openCreateGroup}>Crear grupo</button>}</div>
-                : !matchingGroups.length ? <div className="empty"><h2>No se encontraron grupos</h2><p>Prueba con otro nombre.</p><button className="secondary" type="button" onClick={() => setSearch("")}>Limpiar búsqueda</button></div>
-                : homeView === "gallery" ? <div className="card-grid">{matchingGroups.map((group) => { const count = spaces.filter((space) => space.groupId === group.id).length; return <button className="space-card group-card" key={group.id} type="button" onClick={() => goGroup(group.id)}><GroupGlyph id={group.icon} large /><strong>{group.name}</strong><span className="space-note">{count === 0 ? "Sin espacios todavía" : `${count} espacio${count === 1 ? "" : "s"}`}</span><span className="space-card-open">Abrir grupo →</span></button>; })}</div>
-                : <div className="table-scroll"><table className="space-table"><thead><tr><th scope="col">Grupo</th><th scope="col">Espacios</th></tr></thead><tbody>{matchingGroups.map((group) => { const count = spaces.filter((space) => space.groupId === group.id).length; return <tr key={group.id}><td><button className="table-link" type="button" onClick={() => goGroup(group.id)}><GroupGlyph id={group.icon} /> {group.name}</button></td><td>{count}</td></tr>; })}</tbody></table></div>}
-        </section> : <section className="space-view"><header className="workspace-header"><div className="space-heading"><h1>{currentSpace?.name ?? "Espacio"}</h1><p className="note">{currentSpace?.note}</p><div className="space-meta" aria-label="Resumen del espacio"><span className="space-meta-item"><strong>{pieces.length}</strong><span>piezas</span></span><span className={`space-meta-item ${currentSpace?.botActive ? "ready" : ""}`}><span className="meta-dot" aria-hidden="true" />{currentSpace?.botActive ? "Pack listo" : "Sin pack"}</span></div></div><div className="header-actions" role="group" aria-label="Acciones del espacio">
+                : homeView === "gallery" ? <div className="card-grid">{groups.map((group) => { const count = spaces.filter((space) => space.groupId === group.id).length; return <button className="space-card group-card" key={group.id} type="button" onClick={() => goGroup(group.id)}><GroupGlyph id={group.icon} large /><strong>{group.name}</strong><span className="space-note">{count === 0 ? "Sin espacios todavía" : `${count} espacio${count === 1 ? "" : "s"}`}</span><span className="space-card-open">Abrir grupo →</span></button>; })}</div>
+                : <div className="table-scroll"><table className="space-table"><thead><tr><th scope="col">Grupo</th><th scope="col">Espacios</th></tr></thead><tbody>{groups.map((group) => { const count = spaces.filter((space) => space.groupId === group.id).length; return <tr key={group.id}><td><button className="table-link" type="button" onClick={() => goGroup(group.id)}><GroupGlyph id={group.icon} /> {group.name}</button></td><td>{count}</td></tr>; })}</tbody></table></div>}
+        </section> : <section className="space-view"><header className="workspace-header"><div className="space-heading"><h1 tabIndex={-1}>{currentSpace?.name ?? "Espacio"}</h1><p className="note">{currentSpace?.note}</p><div className="space-meta" aria-label="Resumen del espacio"><span className="space-meta-item"><strong>{pieces.length}</strong><span>piezas</span></span><span className={`space-meta-item ${currentSpace?.botActive ? "ready" : ""}`}><span className="meta-dot" aria-hidden="true" />{currentSpace?.botActive ? "Pack listo" : "Sin pack"}</span></div></div><div className="header-actions" role="group" aria-label="Acciones del espacio">
             <details className="add-menu" ref={addMenu}>
               <summary>＋ Agregar <span aria-hidden="true">⌄</span></summary>
               <div className="command-menu">
@@ -759,7 +883,7 @@ export default function Workspace() {
           <div className="piece-grid" aria-busy={spaceLoading}>{spaceLoading ? <p className="empty">Cargando piezas…</p> : !visiblePieces.length ? <div className="empty"><h2>{pieces.length ? "No hay piezas con este filtro" : "Prepara tu espacio"}</h2><p>{pieces.length ? "Prueba Todas para ver las piezas disponibles." : "Agrega una carpeta para empezar."}</p></div> : visiblePieces.map((piece) => {
             const state = tileState(piece);
             const tone = state?.ok === true ? "healthy" : state?.ok === false ? "error" : "";
-            return <article className={`piece-tile ${piece.marked ? "selected" : ""} ${tone}`} key={piece.id}><button className="piece-main" type="button" disabled={spaceLoading} aria-pressed={piece.marked} onClick={() => void togglePiece(piece)}><span aria-hidden="true" className={`piece-icon ${piece.kind}`}>{(piece.kind === "firefox" || piece.kind === "firefox-group") ? <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20" /></svg> : piece.kind === "vscode" || piece.kind === "cursor" ? "</>" : piece.kind === "file" ? <svg viewBox="0 0 24 24"><path d="M14 3H5v18h14V8zm0 0v5h5M8 12h8M8 16h6" /></svg> : <svg viewBox="0 0 24 24"><path d="M3 7V5h6l2 2h10v13H3z" /></svg>}</span><span className="piece-copy"><strong>{piece.name}</strong><small>{kindLabel[piece.kind]}</small><small className="piece-path">{piece.payload.urls ? `${piece.payload.urls.length} url${piece.payload.urls.length === 1 ? "" : "s"}` : piece.payload.path || piece.payload.url}</small>{state ? <small className={`piece-state ${state.ok ? "ok" : "err"}`} title={state.ok ? "ok" : state.error}>{state.ok ? "ok" : state.error}</small> : null}</span><span className="checkmark" aria-hidden="true">{piece.marked ? "✓" : ""}</span></button><button className="mini-play" type="button" disabled={busy || spaceLoading} aria-label={`Iniciar ${piece.name}`} onClick={() => void launch([piece])}>▶</button><button className="mini-remove" type="button" disabled={busy || spaceLoading} aria-label={`Quitar ${piece.name}`} onClick={() => void removePiece(piece)}>Quitar</button></article>;
+            return <article className={`piece-tile ${piece.marked ? "selected" : ""} ${piece.id === focusPieceId ? "destination" : ""} ${tone}`} key={piece.id} id={`piece-${piece.id}`} tabIndex={-1}><button className="piece-main" type="button" disabled={spaceLoading} aria-pressed={piece.marked} onClick={() => void togglePiece(piece)}><span aria-hidden="true" className={`piece-icon ${piece.kind}`}>{(piece.kind === "firefox" || piece.kind === "firefox-group") ? <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20" /></svg> : piece.kind === "vscode" || piece.kind === "cursor" ? "</>" : piece.kind === "file" ? <svg viewBox="0 0 24 24"><path d="M14 3H5v18h14V8zm0 0v5h5M8 12h8M8 16h6" /></svg> : <svg viewBox="0 0 24 24"><path d="M3 7V5h6l2 2h10v13H3z" /></svg>}</span><span className="piece-copy"><strong>{piece.name}</strong><small>{kindLabel[piece.kind]}</small><small className="piece-path">{piece.payload.urls ? `${piece.payload.urls.length} url${piece.payload.urls.length === 1 ? "" : "s"}` : piece.payload.path || piece.payload.url}</small>{state ? <small className={`piece-state ${state.ok ? "ok" : "err"}`} title={state.ok ? "ok" : state.error}>{state.ok ? "ok" : state.error}</small> : null}</span><span className="checkmark" aria-hidden="true">{piece.marked ? "✓" : ""}</span></button><button className="mini-play" type="button" disabled={busy || spaceLoading} aria-label={`Iniciar ${piece.name}`} onClick={() => void launch([piece])}>▶</button><button className="mini-remove" type="button" disabled={busy || spaceLoading} aria-label={`Quitar ${piece.name}`} onClick={() => void removePiece(piece)}>Quitar</button></article>;
           })}</div>
           {(markedCount > 0 || failedPieces.length > 0) && <div className="play-bar">{markedCount > 0 && <span>{markedCount} marcada{markedCount === 1 ? "" : "s"}</span>}{failedPieces.length > 0 && <span>{failedPieces.length} con error</span>}{failedPieces.length > 0 && <button className="secondary" type="button" disabled={busy || spaceLoading} onClick={() => void launch(failedPieces)}>Reintentar fallidas</button>}{markedCount > 0 && <button type="button" disabled={busy || spaceLoading} onClick={() => void launch(pieces.filter((piece) => piece.marked))}>{busy ? "Iniciando…" : "▶ Iniciar"}</button>}</div>}
         </section>}
@@ -768,7 +892,8 @@ export default function Workspace() {
       </main>
       {logOpen && <aside className="log-drawer" aria-label="Log del host"><header><h2>Host · launch.log</h2><button type="button" onClick={() => setLogOpen(false)}>Cerrar</button></header><div className="log-body">{logText ? logText.split("\n").reverse().map((line, index) => <LogLine key={`${line}-${index}`} line={line} pieces={pieces} onReplay={(payload) => { void launch([payload]); }} />) : <p>Sin lanzamientos.</p>}</div></aside>}
       {settingsOpen && <SettingsDialog onClose={() => setSettingsOpen(false)} />}
-      {captureOpen && <CaptureDialog initialGroupId={currentSpace?.groupId ?? currentGroup?.id ?? ""} initialSpaceId={currentSpace?.id ?? ""} registerExitGuard={registerExitGuard} onClose={closeCapture} onCommitted={(destinationId) => { if (activeSpace.current === destinationId) void loadPieces(destinationId); }} nativeWarning={nativeWarning} />}
+      {captureOpen && <CaptureDialog initialGroupId={currentSpace?.groupId ?? currentGroup?.id ?? ""} initialSpaceId={currentSpace?.id ?? ""} registerExitGuard={registerExitGuard} onClose={closeCapture} onCommitted={(destinationId) => { bumpCatalog(); if (activeSpace.current === destinationId) void loadPieces(destinationId, ++pieceGeneration.current); }} nativeWarning={nativeWarning} />}
+      {searchOpen && <GlobalSearchDialog open={searchOpen} epoch={catalogEpoch} returnFocus={searchTrigger} onClose={closeSearch} onActivate={activateSearchResult} />}
       {templateOpen && <TemplateWizard initialGroupId={currentGroup?.id ?? ""} registerExitGuard={registerExitGuard} onClose={closeTemplates} onCreated={openTemplateSpace} onCreateGroup={() => { closeTemplates(); openCreateGroup(); }} onEmpty={() => { closeTemplates(); if (!groupId) { openCreateGroup(); setStatus("Crea o selecciona un grupo antes de crear un espacio vacío."); return; } setSpaceName(""); setSpaceNote(""); setSpaceFormOpen(true); }} nativeWarning={nativeWarning} />}
       {firefoxGroupOpen && <FirefoxGroupDialog onSave={addFirefoxGroup} onClose={() => setFirefoxGroupOpen(false)} />}
       {urlsOpen && <div className="scrim" role="presentation" onClick={() => setUrlsOpen(false)}>
