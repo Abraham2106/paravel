@@ -1,0 +1,41 @@
+# Dependencies and build output
+node_modules/
+dist/
+dist-ssr/
+target/
+
+# Secrets and local environment
+.env
+.env.*
+!.env.example
+*.operator-secret
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Local databases and logs
+*.sqlite
+*.sqlite3
+*.db
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Local evidence, caches and editor state
+reports/
+.playwright-mcp/
+.cursor/
+.vscode/*
+!.vscode/extensions.json
+.idea/
+__pycache__/
+*.pyc
+*.local
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
