@@ -2,6 +2,7 @@ use rusqlite::{params, Connection};
 use serde::Deserialize;
 use paravel_context::ui::{self, group_icon, stored_group_icon};
 pub use paravel_context::ui::{Group, Space, Piece};
+use paravel_context::ui::navigation::{NavigationCatalog, NavigationResolve, NavigationTarget};
 use serde_json::Value;
 use std::{env, fs, path::PathBuf, sync::Mutex};
 use uuid::Uuid;
@@ -328,6 +329,21 @@ pub fn delete_piece(id: String, state: tauri::State<'_, AppState>) -> Result<(),
     tx.execute("DELETE FROM pieza WHERE id = ?1", [&id])
         .map_err(|e| e.to_string())?;
     tx.commit().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn list_navigation_catalog(state: tauri::State<'_, AppState>) -> Result<NavigationCatalog, String> {
+    let db = state.db.lock().map_err(|_| "SQLite bloqueado.".to_string())?;
+    ui::navigation::list_navigation_catalog(&db)
+}
+
+#[tauri::command]
+pub fn resolve_navigation_target(
+    target: NavigationTarget,
+    state: tauri::State<'_, AppState>,
+) -> Result<NavigationResolve, String> {
+    let db = state.db.lock().map_err(|_| "SQLite bloqueado.".to_string())?;
+    ui::navigation::resolve_navigation_target(&db, &target)
 }
 
 #[tauri::command]
