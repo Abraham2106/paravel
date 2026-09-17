@@ -1,0 +1,17 @@
+.settings-dialog { width: 640px; max-width: calc(100vw - 32px); margin: auto; padding: 0; color: var(--text); }
+.settings-dialog:not([open]) { display: none; }
+.settings-dialog::backdrop { background: var(--scrim); }
+.settings-dialog .body { display: grid; gap: 20px; }
+.settings-dialog h3 { font-size: 0.9rem; margin: 0 0 8px; }
+.settings-dialog input[readonly] { color: var(--muted); background: var(--surface-2); }
+.settings-dialog .capture-muted { color: var(--muted); font-size: 0.8rem; margin: 8px 0; }
+.settings-dialog .capture-error { color: var(--danger); margin: 8px 0; }
+.settings-dialog .capture-error:empty { margin: 0; }
+.settings-roots { list-style: none; margin: 8px 0 12px; padding: 0; display: grid; gap: 8px; }
+.settings-roots li { display: flex; gap: 8px; align-items: center; justify-content: space-between; padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface-2); }
+.settings-roots code { font: 12px/1.4 var(--font-mono); overflow-wrap: anywhere; }
+.settings-exe { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 8px; align-items: end; margin-top: 12px; }
+@media (max-width: 620px) {
+  .settings-dialog { max-width: calc(100vw - 16px); }
+  .settings-exe, .settings-roots li { grid-template-columns: minmax(0, 1fr); }
+}
