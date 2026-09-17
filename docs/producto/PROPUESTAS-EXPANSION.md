@@ -213,7 +213,7 @@ Riesgos: imponer una metodología, multiplicar campos y convertir ejemplos en ca
 
 <!-- (idea creada, falta verificar contra research y websearch) -->
 
-**Estado:** (idea creada, falta verificar contra research y websearch)
+**Estado:** entregada al alcance técnico el 2026-09-17; research y piloto humano pendientes. Contrato: [WBS-P04](../planificacion/WBS-P04-NAVEGACION.md), [modelo](../arquitectura/MODELO.md#p04--contrato-aditivo-de-navegación).
 
 ### Problema e hipótesis
 
@@ -533,7 +533,7 @@ Para cada entrega deben conservarse los recorridos actuales de selección e Inic
 | P01 | Solicitado por el usuario; documentado | Pendiente | No autorizada por este documento |
 | P02 | Solicitado por el usuario; documentado | Pendiente | No autorizada por este documento |
 | P03 | Solicitado por el usuario; documentado | Pendiente | Entregada al alcance técnico 2026-09-16; piloto humano P03.8 pendiente |
-| P04 | Solicitado por el usuario; documentado | Pendiente | No autorizada por este documento |
+| P04 | Solicitado por el usuario; documentado | Pendiente | Entregada al alcance técnico 2026-09-17; piloto humano P04.7/G4 pendiente |
 | P05 | Solicitado por el usuario; documentado | Pendiente | No autorizada por este documento |
 | P06 | Solicitado por el usuario; documentado | Pendiente | No autorizada por este documento |
 | P07 | Solicitado por el usuario; documentado | Pendiente | No autorizada por este documento |

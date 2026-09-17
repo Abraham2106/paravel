@@ -64,6 +64,18 @@ cargo test --lib templates
 
 El recorrido nativo (`node scripts/templates-native.test.mjs`) usa WebView2 real y no debe correr a la vez que otro harness CDP. No lanza aplicaciones.
 
+## Búsqueda unificada (P04)
+
+**Buscar en Paravel** (Ctrl+K) abre un diálogo sobre la vista actual. Coincide solo nombres de grupos, espacios y piezas; no notas ni payloads. Activar un resultado entra al grupo/mesa o enfoca la tarjeta, sin iniciar ni marcar. Pruebas:
+
+```powershell
+cd app
+node --experimental-strip-types --test scripts/navigation.test.mjs
+node scripts/navigation-ui.test.mjs
+```
+
+El harness nativo (`node scripts/navigation-native.test.mjs`) exige WebView2 y el binario debug; puerto CDP 9223, exclusivo.
+
 ## 2.9
 `scripts/reproducir-argv.ps1` imprime el último `argv` como comando PowerShell copiable.
 Usa `-RequestId <id>` para seleccionar otra entrada del log.
