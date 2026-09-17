@@ -83,7 +83,7 @@ Spawn: `Code.exe`, `Cursor.exe`, `firefox.exe`, `explorer.exe`, `ShellExecuteW` 
 
 ## Invokes (freeze)
 
-`pick_folder`, `pick_file`, `pick_executable`, `get_host_settings`, `save_host_settings`, `read_launch_log`, `launch_vscode`, `launch_cursor`, `launch_firefox`, `launch_folder`, `launch_file`, `probe_paths`, `db_path`, `list_groups`, `create_group`, `update_group`, `list_spaces`, `create_space`, `get_invite`, `set_invite`, `clear_invite`, `list_pieces`, `set_marked`, `delete_piece`, `add_piece`, `list_space_templates`, `preview_space_template`, `create_space_from_template`, `get_space_preparation`, `update_space_preparation`, `resolve_preparation_slot`.
+`pick_folder`, `pick_file`, `pick_executable`, `get_host_settings`, `save_host_settings`, `read_launch_log`, `launch_vscode`, `launch_cursor`, `launch_firefox`, `launch_folder`, `launch_file`, `probe_paths`, `db_path`, `list_groups`, `create_group`, `update_group`, `list_spaces`, `create_space`, `get_invite`, `set_invite`, `clear_invite`, `list_pieces`, `list_navigation_catalog`, `resolve_navigation_target`, `set_marked`, `delete_piece`, `add_piece`, `list_space_templates`, `preview_space_template`, `create_space_from_template`, `get_space_preparation`, `update_space_preparation`, `resolve_preparation_slot`.
 
 El webview no usa `tauri-plugin-sql`. Capability base: `core:default`; P01 añade `core:window:allow-destroy` para el cierre de la ventana principal (ver anexo).
 
@@ -260,3 +260,25 @@ Errores públicos: `TEMPLATE_NOT_FOUND`, `TEMPLATE_VERSION_UNSUPPORTED`, `GROUP_
 Privado = excluido de MCP y de packs automáticos, no cifrado. Los lectores MCP no cambian. Borradores del asistente y de la guía viven solo en memoria. Desactivar la UI no borra tablas. Borrar espacio/grupo cascada la preparación.
 
 Invokes P03 en `app/src-tauri/src/lib.rs:566`. Detalle, evidencia y brechas: [PLANTEAMIENTO-P03 §14](../planificacion/PLANTEAMIENTO-P03.md#14-estado-de-esta-entrega).
+
+---
+
+## P04 — Contrato aditivo de navegación
+
+Fecha de decisión: **2026-09-17**. El product owner autoriza implementar P04 al alcance técnico (búsqueda local de nombres + e2e) sin esperar research ni piloto humano. Contrato: [WBS-P04](../planificacion/WBS-P04-NAVEGACION.md). No hay tabla nueva ni índice persistente.
+
+> Research con usuarios, línea base y G4 pendientes. Terminar el código no satisface utilidad.
+
+### Lecturas de escritorio
+
+Dos comandos, fuera de `Reader` y de MCP:
+
+| Comando | Contrato |
+| --- | --- |
+| `list_navigation_catalog` | Snapshot de nombres de grupo/espacio/pieza. Sin nota, payload, pack, marcada, rutas ni URLs. Máximo 20 000 entidades y 8 MiB UTF-8; exceso = error, nunca un recorte presentado como catálogo completo |
+| `resolve_navigation_target` | Identidad y padres actuales por tipo+ID. `found` / `notFound`; un fallo técnico no es ausencia |
+
+La UI compara, ordena y acota en memoria (D07–D08). Activar un resultado solo navega o enfoca. Iniciar, marcar y pack siguen siendo gestos de mesa. El catálogo se reconstruye al abrir el diálogo; las consultas no se persisten.
+
+Invokes P04 en `app/src-tauri/src/lib.rs`. Detalle: [WBS-P04 §17](../planificacion/WBS-P04-NAVEGACION.md#17-estado-de-esta-entrega-2026-09-17).
+

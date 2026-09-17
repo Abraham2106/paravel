@@ -571,6 +571,8 @@ pub fn run() {
             db::set_invite,
             db::clear_invite,
             db::list_pieces,
+            db::list_navigation_catalog,
+            db::resolve_navigation_target,
             db::set_marked,
             db::delete_piece,
             db::add_piece,

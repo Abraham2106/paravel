@@ -105,7 +105,7 @@ cargo test --locked --manifest-path app/crates/paravel-mcp/Cargo.toml
 cargo test --locked --manifest-path app/src-tauri/Cargo.toml
 ```
 
-Los harness nativos bajo `app/scripts/*-native.test.mjs` requieren un build debug y Playwright. Usan el directorio temporal del sistema (`PARAVEL_TEST_TEMP` para aislarlos). Las suites MCP usan fixtures sintéticas, nunca la base personal.
+Los harness nativos bajo `app/scripts/*-native.test.mjs` requieren un build debug y Playwright. Usan el directorio temporal del sistema (`PARAVEL_TEST_TEMP` para aislarlos). Las suites MCP usan fixtures sintéticas, nunca la base personal. P04: `node --experimental-strip-types --test scripts/navigation.test.mjs` (matching puro) y `node scripts/navigation-ui.test.mjs` (Playwright simulado). `navigation-native.test.mjs` usa el puerto CDP 9223; no ejecutarlo a la vez que continuidad.
 
 ## Licencia
 

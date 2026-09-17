@@ -89,7 +89,11 @@ h2 { font-size: 15px; font-weight: 600; }
 .badge, .mini-badge { margin-left: auto; color: var(--muted); font-size: 10px; font-weight: 400; }
 .sidebar-foot { margin-top: auto; padding: 24px 10px 0; color: var(--subtle); font-size: 11px; }
 .workspace-search { display: flex; align-items: center; gap: 6px; margin: 5px 0 0; padding: 4px 9px; border: 1px solid transparent; border-radius: 4px; color: var(--muted); }
-.workspace-search:focus-within { border-color: var(--line-strong); background: var(--surface-1); }
+.workspace-search.search-trigger {
+  width: 100%; min-height: 32px; background: transparent; color: var(--muted); font-weight: 400; text-align: left;
+}
+.workspace-search.search-trigger:hover:not(:disabled) { background: var(--surface-1); color: var(--text-strong); }
+.workspace-search:focus-within, .workspace-search.search-trigger:focus-visible { border-color: var(--line-strong); background: var(--surface-1); }
 .workspace-search input { width: 100%; min-width: 0; border: 0; padding: 4px 0; background: transparent; color: var(--text); font-size: 12px; }
 .workspace-search input:focus { outline: none; }
 .workspace-search kbd { flex-shrink: 0; font: 10px var(--font-mono); color: var(--subtle); }
@@ -170,6 +174,11 @@ h1 .group-glyph { margin-right: 8px; vertical-align: -4px; }
 .piece-tile { position: relative; display: flex; align-items: center; min-width: 0; border-bottom: 1px solid var(--line); }
 .piece-tile:hover { background: var(--surface-2); }
 .piece-tile.selected { background: var(--selected-bg); }
+.piece-tile.destination {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+  background: var(--accent-soft);
+}
 .piece-main { display: flex; align-items: center; gap: 12px; width: 100%; min-width: 0; min-height: 68px; padding: 12px 100px 12px 42px; background: transparent; color: var(--text); text-align: left; }
 .piece-main:hover:not(:disabled) { background: transparent; }
 .piece-icon { display: grid; place-items: center; flex: 0 0 28px; width: 28px; height: 28px; color: var(--muted); font: 12px var(--font-mono); }
@@ -381,6 +390,28 @@ pre {
   color: var(--subtle);
 }
 
+.search-dialog { width: min(640px, 100%); }
+.search-status { margin: 8px 0 12px; color: var(--muted); font-size: 12.5px; min-height: 1.5em; }
+.search-state { display: grid; gap: 12px; justify-items: start; color: var(--muted); }
+.search-results { display: grid; gap: 16px; }
+.search-section h3 {
+  display: flex; justify-content: space-between; gap: 12px; margin: 0 0 8px;
+  color: var(--muted); font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase;
+}
+.search-section h3 span { font-weight: 500; letter-spacing: 0; text-transform: none; }
+.search-option {
+  display: flex; align-items: center; gap: 10px; width: 100%; min-height: 44px; padding: 8px 10px;
+  border: 1px solid transparent; border-radius: 6px; background: transparent; color: var(--text); text-align: left; cursor: pointer;
+}
+.search-option.active { background: var(--accent-soft); border-color: var(--accent); }
+.search-option.inert { cursor: default; opacity: .7; }
+.search-kind { flex: 0 0 auto; color: var(--subtle); font-size: 11px; }
+.search-copy { display: grid; min-width: 0; }
+.search-copy strong, .search-copy small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.search-copy small { color: var(--muted); font-size: 11px; }
+.search-reason { color: var(--subtle); }
+.search-more { justify-self: start; margin-top: 4px; }
+
 .dialog-field {
   display: grid;
   gap: 7px;
@@ -498,6 +529,6 @@ input[type="checkbox"] {
   *, *::before, *::after { scroll-behavior: auto !important; animation: none !important; transition: none !important; }
 }
 @media (forced-colors: active) {
-  .piece-tile.selected, .space-link.active, button[aria-pressed="true"] { outline: 2px solid Highlight; outline-offset: -2px; }
+  .piece-tile.selected, .piece-tile.destination, .space-link.active, button[aria-pressed="true"] { outline: 2px solid Highlight; outline-offset: -2px; }
   .selected .checkmark { background: Highlight; color: HighlightText; }
 }

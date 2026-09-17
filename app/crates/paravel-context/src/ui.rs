@@ -3,6 +3,8 @@ use serde::Serialize;
 use serde_json::Value;
 use uuid::Uuid;
 
+pub mod navigation;
+
 const GROUP_ICONS: &[&str] = &[
     "folder",
     "briefcase",

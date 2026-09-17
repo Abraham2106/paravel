@@ -277,12 +277,21 @@ fn main() -> ExitCode {
 mod cli_tests {
     use super::*;
 
+    #[cfg(windows)]
+    const ABS_DB: &str = r"C:\db.sqlite";
+    #[cfg(windows)]
+    const ABS_SECRET: &str = r"C:\test.operator-secret";
+    #[cfg(not(windows))]
+    const ABS_DB: &str = "/tmp/db.sqlite";
+    #[cfg(not(windows))]
+    const ABS_SECRET: &str = "/tmp/test.operator-secret";
+
     #[test]
     fn http_requires_loopback_and_public_url() {
         assert!(matches!(
             parse_cli([
                 "--db".into(),
-                "C:\\db.sqlite".into(),
+                ABS_DB.into(),
                 "--espacio".into(),
                 "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa".into(),
                 "--http".into(),
@@ -290,13 +299,13 @@ mod cli_tests {
                 "--public-url".into(),
                 "http://127.0.0.1:8787".into(),
                 "--operator-secret-file".into(),
-                "C:\\test.operator-secret".into()
+                ABS_SECRET.into()
             ]),
             Ok(Command::Run(_))
         ));
         assert!(parse_cli([
             "--db".into(),
-            "C:\\db.sqlite".into(),
+            ABS_DB.into(),
             "--espacio".into(),
             "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa".into(),
             "--http".into(),

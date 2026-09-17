@@ -1,7 +1,7 @@
 # WBS P04 — Navegación y búsqueda unificadas
 
-Fecha: 2026-09-16.
-Estado: **planteamiento para revisión; no autoriza implementación; contraste técnico realizado por lectura; validación humana pendiente**.
+Fecha: 2026-09-16; actualización de entrega 2026-09-17.
+Estado: **implementación técnica P04.3–P04.6 entregada al alcance de código; research y validación humana G4 pendientes**.
 Origen: [P04 — Navegación y búsqueda unificadas](../producto/PROPUESTAS-EXPANSION.md#p04-navegación-y-búsqueda-unificadas).
 Marco: [Producto](../producto/PRODUCTO.md), [arquitectura](../arquitectura/ARQUITECTURA.md), [modelo](../arquitectura/MODELO.md) y [WBS principal](./WBS.md).
 
@@ -15,10 +15,9 @@ La dificultad principal no está en comparar cadenas: está en conservar los bor
 
 ### Qué autoriza este documento
 
-- Profundización conceptual, alternativas, contrato propuesto y descomposición de trabajo.
-- Ninguna modificación del código de aplicación, permisos, schema o herramientas MCP.
-- Las decisiones D01–D12 son recomendaciones por aprobar, no decisiones ya autorizadas.
-- La autorización anterior de P01 no se extiende a P04.
+- El planteamiento original (secciones 2–16) sigue siendo el contrato de producto.
+- **DEC-P04-2026-09-17:** el product owner autorizó explícitamente implementar P04, incluir e2e y abrir un PR, pese a que este documento decía «no autoriza implementación». Es una excepción de secuencia, no evidencia de G1 ni de G4.
+- Las decisiones D01–D12 se adoptan como contrato de esta entrega salvo que el código demuestre que alguna es insegura.
 - P04.x son paquetes locales de esta feature; no renumeran ni cierran los WP globales.
 
 ### Resultado esperado, todavía hipótesis
@@ -587,12 +586,34 @@ No se requiere infraestructura de feature flags para validar el mínimo. Si se a
 | Área | Estado real |
 | --- | --- |
 | Identificación de P04 y contraste con implementación actual | Realizado por lectura |
-| Alcance, decisiones, DTO, ranking y navegación | Propuestos para aprobación |
+| Alcance, decisiones, DTO, ranking y navegación | D01–D12 adoptados en código el 2026-09-17 |
 | WBS, matriz técnica, protocolo y riesgos | Documentados |
 | Referencias de accesibilidad | Consultadas; no equivalen a validación de UI |
 | Referencias de producto y research humano | Pendientes |
-| Código, permisos o migraciones P04 | No modificados |
-| Tests/build/benchmark de P04 | No ejecutados; feature no implementada |
-| Autorización para implementar | Pendiente |
+| Código P04 | Entregado en P04.3–P04.6; sin migraciones ni herramientas MCP nuevas |
+| Tests/build de P04 | Ver sección 17; G4 no ejecutada |
+| Autorización para implementar | DEC-P04-2026-09-17 |
 
-**Siguiente decisión:** aprobar o ajustar D01–D12, especialmente búsqueda solo por nombres, sección Grupos, comportamiento «ir a pieza» y política de frescura. Después autorizar la implementación por P04.3–P04.6, sin presentar las validaciones humanas pendientes como completadas.
+**Siguiente decisión humana:** G4. El código de P04.3–P04.6 no cierra utilidad.
+
+## 17. Estado de esta entrega (2026-09-17)
+
+### DEC-P04-2026-09-17 — Autorización de código
+
+Abraham autorizó abrir un PR en paravel e implementar **p-04 e2e**. No se espera G1 de research ni G4. No se añaden herramientas MCP, migraciones ni FTS.
+
+### P04.3–P04.6 entregados
+
+| WP | Entrega |
+| --- | --- |
+| P04.3 | `paravel-context` `ui/navigation.rs`: catálogo mínimo y resolve-by-id; wrappers `list_navigation_catalog` / `resolve_navigation_target` en escritorio |
+| P04.4 | `navigation.ts`, `useNavigationCatalog.ts`, `GlobalSearchDialog.tsx`: matching puro, diálogo combobox, estados vacíos/error/excedido |
+| P04.5 | `Workspace.tsx`: disparador visible, Ctrl/Cmd+K, guard de continuidad, generaciones de piezas, foco de tarjeta distinto de marcada |
+| P04.6 | `scripts/navigation.test.mjs`, `navigation-ui.test.mjs`, `navigation-native.test.mjs`; rechazo MCP de búsqueda global |
+| P04.7 / G4 | Pendiente: comparación humana con la navegación jerárquica |
+| P04.8 | Este documento + anexo del modelo; sin afirmar validación de producto |
+
+D01–D12 aplicados: nombres solamente; diálogo único; secciones Espacios/Piezas/Grupos; activar = navegar/enfocar; catálogo efímero; resolver por ID; plegado D07; ranking D08; guard + generaciones D10; invalidación D11; MCP intacto D12.
+
+El filtro previo del sidebar por nota **ya no existe**. El copy dice «Buscar grupos, espacios y piezas por nombre».
+
