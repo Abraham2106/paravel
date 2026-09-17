@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "paravel-mesa": {
+      "type": "stdio",
+      "command": "C:/REPLACE_WITH_REPO/app/crates/paravel-mcp/target/release/paravel-mcp.exe",
+      "args": [
+        "--db",
+        "C:/REPLACE_WITH_DATABASE_DIRECTORY/paravel.sqlite3",
+        "--espacio",
+        "REPLACE_WITH_SPACE_UUID"
+      ]
+    }
+  }
+}
